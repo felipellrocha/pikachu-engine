@@ -1,0 +1,66 @@
+OUT_FILE := main.js
+
+OUT_DIR := build
+INC_DIR := src
+SRC_DIR := src
+OBJ_DIR := obj/wasm
+
+# CXX := EMCC_WASM_BACKEND=1 em++
+# LINKER := EMCC_WASM_BACKEND=1 em++
+CXX := em++
+LINKER := em++
+INC_DIRS := -I$(INC_DIR)
+CXX_FLAGS = \
+	-std=c++11 \
+	-std=c++14 \
+  -Wall \
+  -Wno-missing-braces \
+	-Wextra \
+	-Wshadow \
+	-pedantic \
+	-Oz \
+	-s USE_SDL=2 \
+	-s USE_SDL_IMAGE=2 \
+	-s USE_SDL_TTF=2 \
+	-s SDL2_IMAGE_FORMATS='["png"]' \
+	-s MODULARIZE=1 \
+	-s DISABLE_EXCEPTION_CATCHING=0 \
+	-s WASM=1 \
+	-s "BINARYEN_METHOD='native-wasm'" \
+  -s ASSERTIONS=1 \
+	-s TOTAL_MEMORY=160MB \
+	#-D DRAW_FPS \
+	-D DRAW_COLLISION 
+EXEC_FLAGS = \
+	--preload-file assets \
+	-s EXPORTED_FUNCTIONS='["_initialize", "_resize"]' \
+	--emrun
+LIBS :=
+
+SRC_FILES := $(shell find $(SRC_DIR) -name '*.cpp')
+OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
+DEPFILES := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.d,$(SRC_FILES))
+
+$(OUT_DIR)/$(OUT_FILE): $(OBJ_FILES)
+	$(LINKER) $(CXX_FLAGS) $(EXEC_FLAGS) $^ $(LIBS) -o $@
+
+clean:
+	rm -rf $(OBJ_DIR) $(OUT_DIR)/main*.{js,data,wasm,wast}
+
+list:
+	@echo "$(SRC_FILES)"
+	@echo "$(OBJ_FILES)"
+
+depends:
+	rm -rf $(OBJ_DIR)/*.d
+	$(MAKE) $(DEPFILES)
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXX_FLAGS) $(INC_DIRS) -c $< -o $@
+
+$(OBJ_DIR)/%.d: $(SRC_DIR)/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXX_FLAGS) $(INC_DIRS) -MM $< | tr '\n\r\\' ' ' | sed -e 's%^%$@ %' -e 's% % $(OBJ_DIR)/%' > $@
+
+-include $(DEPFILES)
